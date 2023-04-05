@@ -3,3 +3,5 @@
 modeling/*.npy
 modeling/wandb
 **/*.pyc
+**/*.h5
+**/logs

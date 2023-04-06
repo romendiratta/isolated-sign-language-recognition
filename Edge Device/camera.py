@@ -17,6 +17,7 @@ LOCAL_MQTT_TOPIC_TO_MODEL = "to-model"
 # Initialize MQTT client
 mqttclient = mqtt.Client()
 mqttclient.connect(LOCAL_MQTT_HOST, LOCAL_MQTT_PORT, 60)
+mqttclient.loop_start()
 
 # Let's initialize models for face, pose and hands
 face_mesh = mp.solutions.face_mesh # This is to draw the mesh on the face where each point is detected
@@ -106,13 +107,12 @@ def encode_frame(frame):
 
 # Let's stream image from the camera and save it
 cap = cv.VideoCapture(0) #0 is listed here as it is the camera on my computer. Change it as needed to yours
-#cv.namedWindow('Detected landmarks', cv.WINDOW_NORMAL) # To show window with maximize button
-#cv.setWindowProperty('Detected landmarks', cv.WND_PROP_AUTOSIZE, cv.WINDOW_NORMAL)
 
+frame_number = 0
 message = 'Processing...'
 with face_mesh.FaceMesh(static_image_mode = False, max_num_faces = max_faces, min_detection_confidence=0.5, min_tracking_confidence= 0.5) as your_face, mp_pose.Pose(min_detection_confidence=0.5) as your_pose, mp_hands.Hands(min_detection_confidence=0.5) as your_hands:
     while True: #time.time() < t_end: # While time < 25 seconds
-        frame_number = 0
+        face_data = []
         right_hand_data = [] #Declare empty list so that it can be used if no hands or pose is detected
         left_hand_data = []
         pose_data = []
@@ -151,18 +151,17 @@ with face_mesh.FaceMesh(static_image_mode = False, max_num_faces = max_faces, mi
         image = cv.cvtColor(image,cv.COLOR_RGB2BGR) # Convert image back to normal from RGB
 
         encoded_frame = encode_frame(image)
+
         # Send data to model.py
-        data = {
+        data_to_model = {
             'face_data': face_data,
             'pose_data': pose_data,
             'left_hand_data': left_hand_data,
             'right_hand_data': right_hand_data,
             'image':encoded_frame
         }
-        mqttclient.publish(LOCAL_MQTT_TOPIC_TO_MODEL, json.dumps(data))        
-        #cv.putText(image, message, (20, 30), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
-        #cv.imshow('Detected landmarks', image) #Show the image with landmarks drawn
+        mqttclient.publish(LOCAL_MQTT_TOPIC_TO_MODEL, json.dumps(data_to_model))
         frame_number += 1
         
 
@@ -170,7 +169,5 @@ with face_mesh.FaceMesh(static_image_mode = False, max_num_faces = max_faces, mi
             break
 
 cap.release()
-#mqttclient.loop_stop()
+mqttclient.loop_stop()
 cv.destroyAllWindows()
-
-mqttclient.loop_forever()

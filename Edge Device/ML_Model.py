@@ -1,3 +1,4 @@
+# Import required libraries
 import paho.mqtt.client as mqtt
 import sys
 import json
@@ -5,6 +6,7 @@ import base64
 import cv2 as cv
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 
 # Setup the local client
 LOCAL_MQTT_HOST = "localhost"
@@ -23,7 +25,8 @@ def decode_frame(encoded_frame):
 
 def interpret_sign(data_df):
     #Process dataframe sent by the program
-    print(data_df.head(2))
+    print(data_df.shape)
+    data_df.to_csv("landmarks.csv")
 
     model_output = "Sign from Model"
     interpreted_sign = model_output    

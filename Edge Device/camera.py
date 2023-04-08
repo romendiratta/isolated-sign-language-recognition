@@ -160,7 +160,9 @@ with face_mesh.FaceMesh(static_image_mode = False, max_num_faces = max_faces, mi
             'right_hand_data': right_hand_data,
             'image':encoded_frame
         }
-
+        #df = pd.DataFrame(data_to_model)
+        #print(df.shape)
+        
         mqttclient.publish(LOCAL_MQTT_TOPIC_TO_MODEL, json.dumps(data_to_model))
         frame_number += 1
         

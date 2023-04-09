@@ -29,25 +29,75 @@ def decode_frame(encoded_frame):
 def interpret_sign(data_df):
     #Process dataframe sent by the program
     print(data_df.shape)
+    data_df.to_csv("landmarks.csv") #Overwritten for each frame
+    data_df.to_parquet("landmarks.parquet")
     model_output = "Sign from Model"
-    interpreted_sign = model_output    
+    interpreted_sign = model_output
 
 # Subscribe to local client topic
 def on_connect_local(client, userdata, flags, rc):
     print("connected to local broker with rc: " + str(rc))
     client.subscribe(LOCAL_MQTT_TOPIC_FROM_CAMERA)
 
+def fill_data(data_df, frame_num):
+    face_data = data_df[data_df.type == 'face']
+    left_hand_data = data_df[data_df.type == 'left_hand']
+    pose_data = data_df[data_df.type == 'pose']
+    right_hand_data = data_df[data_df.type == 'right_hand']
+    if len(face_data) == 0:
+        face_data = pd.DataFrame({'frame': [frame_num] * 468, 'row-id':[np.nan] * 468,'type':['face'] * 468,
+                                        'landmark_index':[np.nan] * 468,
+                                        'x':[np.nan] * 468,
+                                        'y':[np.nan] * 468})
+    
+    if len(left_hand_data) == 0:
+        left_hand_data = pd.DataFrame({'frame': [frame_num] * 21, 'row-id':[np.nan] * 21,'type':['left_hand'] * 21,
+                                        'landmark_index':[np.nan] * 21,
+                                        'x':[np.nan] * 21,
+                                        'y':[np.nan] * 21})
+    if len(right_hand_data) == 0:
+        right_hand_data = pd.DataFrame({'frame': [frame_num] * 21, 'row-id':[np.nan] * 21,'type':['right_hand'] * 21,
+                                        'landmark_index':[np.nan] * 21,
+                                        'x':[np.nan] * 21,
+                                        'y':[np.nan] * 21})
+    if len(pose_data) == 0:
+        pose_data = pd.DataFrame({'frame': [frame_num] * 33, 'row-id':[np.nan] * 33,'type':['pose'] * 33,
+                                        'landmark_index':[np.nan] * 33,
+                                        'x':[np.nan] * 33,
+                                        'y':[np.nan] * 33})
+        
+    all_data = pd.concat([face_data,left_hand_data,pose_data,right_hand_data])
+    return all_data
+    
+
 def on_message(client, userdata, msg):
     global start_interpretation, interpretation_time
     try:
         # Receive the payload from MQTT
         response = json.loads(msg.payload.decode("utf-8"))
+
+        
         # Combine the data into a single list
-        all_data = response['face_data'] + response['pose_data'] + response['left_hand_data'] + response['right_hand_data']
-        # Convert the list to a DataFrame
+        all_data = response['face_data'] + response['left_hand_data'] + response['pose_data']+ response['right_hand_data']
+        
         data_df = pd.DataFrame(all_data)
+        frame_num = data_df.iloc[-1]['frame']
+        data_df = fill_data(data_df, frame_num)
+        data_df.drop(columns=['row-id'],inplace=True)
+        
         # If user hits space bar, then send data to the interpret_sign function.
         if start_interpretation:
+            rows_in_frame, _ = data_df.shape #Check if the frame has 543 rows
+            if rows_in_frame < 543: # If number of rows is less than 543
+                padding_rows = 543 - rows_in_frame
+                last_frame_value = data_df.iloc[-1]['frame'] #Get last frame value
+                # Use the same frame number throughout the dataframe. Replace X and Y with NaN values to pad the dataframe
+                padding_df = pd.DataFrame({'frame': [last_frame_value] * padding_rows,
+                                           'type': [np.nan] * padding_rows,
+                                           'landmark_index': [np.nan] * padding_rows,
+                                            'x': [np.nan] * padding_rows,
+                                            'y': [np.nan] * padding_rows})
+                data_df = pd.concat([data_df, padding_df], ignore_index=True)
             interpret_sign(data_df)
         
         # Decode the frames and show the video. 
@@ -58,6 +108,7 @@ def on_message(client, userdata, msg):
         key = cv.waitKey(1)
         if key == ord(' '): #Check if spacebar is pressed by user
             if not start_interpretation:
+                print("Starting time")
                 interpretation_time = time.time() #Start the time to record 0.5 seconds
         elif key == 27: # When user presses the ESC key
             start_interpretation = False
@@ -68,6 +119,7 @@ def on_message(client, userdata, msg):
         if interpretation_time != False and time.time() - interpretation_time >=0.5:
             print("Starting feed")
             start_interpretation = True
+            #interpreted_sign = "Starting Processing"
             interpretation_time = False #Reset interpretation time so that you aren't calling this loop each time.
 
         

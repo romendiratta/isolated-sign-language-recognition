@@ -109,13 +109,14 @@ def encode_frame(frame):
 cap = cv.VideoCapture(0) #0 is listed here as it is the camera on my computer. Change it as needed to yours
 
 frame_number = 0
-face_data = []
-right_hand_data = [] #Declare empty list so that it can be used if no hands or pose is detected
-left_hand_data = []
-pose_data = []
+
 message = 'Processing...'
 with face_mesh.FaceMesh(static_image_mode = False, max_num_faces = max_faces, min_detection_confidence=0.5, min_tracking_confidence= 0.5) as your_face, mp_pose.Pose(min_detection_confidence=0.5) as your_pose, mp_hands.Hands(min_detection_confidence=0.5) as your_hands:
     while True: #time.time() < t_end: # While time < 25 seconds
+        face_data = []
+        right_hand_data = [] #Declare empty list so that it can be used if no hands or pose is detected
+        left_hand_data = []
+        pose_data = []
         ret, image = cap.read() # Capture a frame from the webcam
         if not ret: # If image not detected, then break out
             break
@@ -159,8 +160,7 @@ with face_mesh.FaceMesh(static_image_mode = False, max_num_faces = max_faces, mi
             'right_hand_data': right_hand_data,
             'image':encoded_frame
         }
-        #df = pd.DataFrame(data_to_model)
-        #print(df.shape)
+        print(len(face_data), len(left_hand_data), len(pose_data), len(right_hand_data))
         
         mqttclient.publish(LOCAL_MQTT_TOPIC_TO_MODEL, json.dumps(data_to_model))
         frame_number += 1

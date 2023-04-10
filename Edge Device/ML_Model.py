@@ -33,8 +33,10 @@ def decode_frame(encoded_frame):
 def interpret_sign(data_df):
     global interpreter
     #Process dataframe sent by the program
-    data_df.to_csv("landmarks.csv") #Overwritten for each frame
-    data_df.to_parquet("landmarks.parquet")
+    temp_df = pd.read_parquet("landmarks.parquet")
+    temp_df = pd.concat([temp_df,data_df])
+    temp_df.to_parquet("landmarks.parquet")
+    temp_df.to_csv("landmarks.csv") 
     data_columns = ['x', 'y']
     model_data = data_df[['x','y']]
     n_frames = int(len(model_data) / ROWS_PER_FRAME)
@@ -48,6 +50,10 @@ def interpret_sign(data_df):
         model_output = "Not detected"
     else:
         model_output = str(output['outputs'].argmax())
+    if model_output == "0":
+        model_output = "No sign detected. Please try again"
+    else:
+        model_output = model_output    
     #model_output = "Sign from Model"
     interpreted_sign = model_output
     return interpreted_sign
@@ -69,11 +75,13 @@ def fill_data(data_df, frame_num):
                                         'y':[np.nan] * 468})
     
     if len(left_hand_data) == 0:
+        print("Inside left hand")
         left_hand_data = pd.DataFrame({'frame': [frame_num] * 21, 'row-id':[np.nan] * 21,'type':['left_hand'] * 21,
                                         'landmark_index':[np.nan] * 21,
                                         'x':[np.nan] * 21,
                                         'y':[np.nan] * 21})
     if len(right_hand_data) == 0:
+        print("Inside right hand")
         right_hand_data = pd.DataFrame({'frame': [frame_num] * 21, 'row-id':[np.nan] * 21,'type':['right_hand'] * 21,
                                         'landmark_index':[np.nan] * 21,
                                         'x':[np.nan] * 21,
@@ -94,28 +102,26 @@ def on_message(client, userdata, msg):
     try:
         # Receive the payload from MQTT
         response = json.loads(msg.payload.decode("utf-8"))
-        # Combine the data into a single list
-        all_data = response['face_data'] + response['left_hand_data'] + response['pose_data']+ response['right_hand_data']
-        
-        data_df = pd.DataFrame(all_data)
-        frame_num = data_df.iloc[-1]['frame']
-        data_df = fill_data(data_df, frame_num)
-        data_df.drop(columns=['row-id'],inplace=True)
-        
         # If user hits space bar, then collect data to send to the interpret_sign function.
         if start_interpretation:
+            # Combine the data into a single list
+            all_data = response['face_data'] + response['left_hand_data'] + response['pose_data']+ response['right_hand_data']
+            data_df = pd.DataFrame(all_data)
+            frame_num = data_df.iloc[-1]['frame']
+            data_df = fill_data(data_df, frame_num)
+            data_df.drop(columns=['row-id'],inplace=True)
             interpreted_sign = 'Start a sign'
             rows_in_frame, _ = data_df.shape #Check if the frame has 543 rows
-            if rows_in_frame < 543: # If number of rows is less than 543
-                padding_rows = 543 - rows_in_frame
-                last_frame_value = data_df.iloc[-1]['frame'] #Get last frame value
-                # Use the same frame number throughout the dataframe. Replace X and Y with NaN values to pad the dataframe
-                padding_df = pd.DataFrame({'frame': [last_frame_value] * padding_rows,
-                                           'type': [np.nan] * padding_rows,
-                                           'landmark_index': [np.nan] * padding_rows,
-                                            'x': [np.nan] * padding_rows,
-                                            'y': [np.nan] * padding_rows})
-                data_df = pd.concat([data_df, padding_df], ignore_index=True)
+            #if rows_in_frame < 543: # If number of rows is less than 543
+            #    padding_rows = 543 - rows_in_frame
+            #    last_frame_value = data_df.iloc[-1]['frame'] #Get last frame value
+            #    # Use the same frame number throughout the dataframe. Replace X and Y with NaN values to pad the dataframe
+            #    padding_df = pd.DataFrame({'frame': [last_frame_value] * padding_rows,
+            #                               'type': [np.nan] * padding_rows,
+            #                               'landmark_index': [np.nan] * padding_rows,
+            #                                'x': [np.nan] * padding_rows,
+            #                                'y': [np.nan] * padding_rows})
+            #    data_df = pd.concat([data_df, padding_df], ignore_index=True)
             data_to_model = pd.concat([data_to_model,data_df])
         if not start_interpretation and data_collect:
             interpreted_sign = interpret_sign(data_to_model)

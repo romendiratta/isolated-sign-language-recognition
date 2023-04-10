@@ -17,7 +17,11 @@ global interpreted_sign  #Empty string to store interpreted sign value
 interpreted_sign = "~"
 start_interpretation = False
 interpretation_time = False
-
+data_to_model = pd.DataFrame() # Empty dataframe to hold all the data to be sent to model
+ROWS_PER_FRAME = 543 # Define number of rows per frame for model interpretation
+data_collect = False
+# Replace path to tflite model below
+interpreter = tf.lite.Interpreter("/home/dpakapd/Documents/Berkeley/W251 Deep Learning in Edge/Final Project/Edge Device/Edge Device/v1_model.tflite")
 
 # Add the decode_frame function
 def decode_frame(encoded_frame):
@@ -27,12 +31,26 @@ def decode_frame(encoded_frame):
     return frame
 
 def interpret_sign(data_df):
+    global interpreter
     #Process dataframe sent by the program
-    print(data_df.shape)
     data_df.to_csv("landmarks.csv") #Overwritten for each frame
     data_df.to_parquet("landmarks.parquet")
-    model_output = "Sign from Model"
+    data_columns = ['x', 'y']
+    model_data = data_df[['x','y']]
+    n_frames = int(len(model_data) / ROWS_PER_FRAME)
+    model_data = model_data.values.reshape(n_frames, ROWS_PER_FRAME, len(data_columns))
+    model_data =  model_data.astype(np.float32)
+    found_signatures = list(interpreter.get_signature_list().keys())
+    prediction_fn = interpreter.get_signature_runner("serving_default")
+
+    output = prediction_fn(inputs=model_data)
+    if output['outputs'].max() < 0.001:
+        model_output = "Not detected"
+    else:
+        model_output = str(output['outputs'].argmax())
+    #model_output = "Sign from Model"
     interpreted_sign = model_output
+    return interpreted_sign
 
 # Subscribe to local client topic
 def on_connect_local(client, userdata, flags, rc):
@@ -71,12 +89,11 @@ def fill_data(data_df, frame_num):
     
 
 def on_message(client, userdata, msg):
-    global start_interpretation, interpretation_time
+    global start_interpretation, interpretation_time, interpreted_sign, data_to_model, data_collect
+    
     try:
         # Receive the payload from MQTT
         response = json.loads(msg.payload.decode("utf-8"))
-
-        
         # Combine the data into a single list
         all_data = response['face_data'] + response['left_hand_data'] + response['pose_data']+ response['right_hand_data']
         
@@ -85,8 +102,9 @@ def on_message(client, userdata, msg):
         data_df = fill_data(data_df, frame_num)
         data_df.drop(columns=['row-id'],inplace=True)
         
-        # If user hits space bar, then send data to the interpret_sign function.
+        # If user hits space bar, then collect data to send to the interpret_sign function.
         if start_interpretation:
+            interpreted_sign = 'Start a sign'
             rows_in_frame, _ = data_df.shape #Check if the frame has 543 rows
             if rows_in_frame < 543: # If number of rows is less than 543
                 padding_rows = 543 - rows_in_frame
@@ -98,7 +116,9 @@ def on_message(client, userdata, msg):
                                             'x': [np.nan] * padding_rows,
                                             'y': [np.nan] * padding_rows})
                 data_df = pd.concat([data_df, padding_df], ignore_index=True)
-            interpret_sign(data_df)
+            data_to_model = pd.concat([data_to_model,data_df])
+        if not start_interpretation and data_collect:
+            interpreted_sign = interpret_sign(data_to_model)
         
         # Decode the frames and show the video. 
         encoded_frame = response["image"]
@@ -107,11 +127,13 @@ def on_message(client, userdata, msg):
         cv.imshow('Detected Landmarks', frame)
         key = cv.waitKey(1)
         if key == ord(' '): #Check if spacebar is pressed by user
+            data_collect = False
             if not start_interpretation:
                 print("Starting time")
                 interpretation_time = time.time() #Start the time to record 0.5 seconds
         elif key == 27: # When user presses the ESC key
             start_interpretation = False
+            data_collect = True
             print("Stopping feed")
         elif key == ord('q'): # If the user presses 'Q' to quit
             cv.destroyAllWindows()

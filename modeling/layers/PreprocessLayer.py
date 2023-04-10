@@ -1,97 +1,79 @@
 import tensorflow as tf
 
-"""
-    Tensorflow layer to process data in TFLite
-    Data needs to be processed in the model itself, so we can not use Python
-""" 
 class PreprocessLayer(tf.keras.layers.Layer):
-    def __init__(self, N_ROWS, N_DIMS, HAND_IDXS0, LANDMARK_IDXS0, INPUT_SIZE):
+    def __init__(self, INPUT_SIZE):
         super(PreprocessLayer, self).__init__()
-        self.N_ROWS = N_ROWS
-        self.N_DIMS = N_DIMS
-        self.HAND_IDXS0 = HAND_IDXS0
-        self.LANDMARK_IDXS0 = LANDMARK_IDXS0
         self.INPUT_SIZE = INPUT_SIZE
-        self.N_COLS = LANDMARK_IDXS0.size
+        # Indicies in original data. 
+        self.FACE_IDXS = tf.constant([0, 6, 7, 11, 12, 13, 14, 15, 17, 22, 23, 24, 25, 26, 30, 31, 
+                     33, 37, 38, 39, 40, 41, 42, 56, 61, 62, 72, 73, 74, 76, 77, 
+                     78, 80, 81, 82, 84, 86, 87, 88, 89, 90, 91, 95, 96, 110, 112, 
+                     113, 122, 128, 130, 133, 144, 145, 146, 153, 154, 155, 157, 158, 
+                     159, 160, 161, 163, 168, 173, 178, 179, 180, 181, 183, 184, 185, 
+                     188, 189, 190, 191, 193, 196, 197, 232, 233, 243, 244, 245, 246, 
+                     247, 249, 252, 253, 254, 255, 256, 259, 260, 263, 267, 268, 269, 
+                     270, 271, 272, 286, 291, 292, 302, 303, 304, 306, 307, 308, 310, 
+                     311, 312, 314, 316, 317, 318, 319, 320, 321, 324, 325, 339, 341, 
+                     351, 357, 359, 362, 373, 374, 375, 380, 381, 382, 384, 385, 386, 
+                     387, 388, 390, 398, 402, 403, 404, 405, 407, 408, 409, 412, 413, 
+                     414, 415, 417, 419, 453, 463, 464, 465, 466, 467], dtype=tf.int32)
+        self.POSE_IDXS = tf.constant(tf.range(489, 514, delta=1, dtype=tf.int32))
+        self.LEFT_HAND_IDXS = tf.constant(tf.range(468, 489, delta=1, dtype=tf.int32))
+        self.RIGHT_HAND_IDXS = tf.constant(tf.range(522, 543, delta=1, dtype=tf.int32))
+            
+        # All landmarks that are used for modeling. 
+        self.LANDMARK_IDXS = tf.constant(tf.concat([self.FACE_IDXS, self.POSE_IDXS, self.LEFT_HAND_IDXS, self.RIGHT_HAND_IDXS], 0), dtype=tf.int32)
         
-    def pad_edge(self, t, repeats, side):
-        if side == 'LEFT':
-            return tf.concat((tf.repeat(t[:1], repeats=repeats, axis=0), t), axis=0)
-        elif side == 'RIGHT':
-            return tf.concat((t, tf.repeat(t[-1:], repeats=repeats, axis=0)), axis=0)
+        # Indicies after landmarks have been filtered. 
+        self.FACE_START = tf.constant(0, dtype=tf.int32)
+        self.LEFT_HAND_START = tf.constant(len(self.FACE_IDXS), dtype=tf.int32)
+        self.POSE_START = tf.constant(self.LEFT_HAND_START + len(self.LEFT_HAND_IDXS), dtype=tf.int32)
+        self.RIGHT_HAND_START = tf.constant(self.POSE_START + len(self.POSE_IDXS), dtype=tf.int32)
     
-    @tf.function(
-        input_signature=(tf.TensorSpec(shape=[None, 543, 2], dtype=tf.float32),),
-    )
-    def call(self, data0):
-        # Number of Frames in Video
-        N_FRAMES0 = tf.shape(data0)[0]
-        
-        # Filter Out Frames With Empty Hand Data
-        frames_hands_nansum = tf.experimental.numpy.nanmean(tf.gather(data0, self.HAND_IDXS0, axis=1), axis=[1,2])
-        non_empty_frames_idxs = tf.where(frames_hands_nansum > 0)
-        non_empty_frames_idxs = tf.squeeze(non_empty_frames_idxs, axis=1)
-        data = tf.gather(data0, non_empty_frames_idxs, axis=0)
-        
-        # Cast Indices in float32 to be compatible with Tensorflow Lite
-        non_empty_frames_idxs = tf.cast(non_empty_frames_idxs, tf.float32) 
-
-        # Number of Frames in Filtered Video
+    # @tf.function(
+    #     input_signature=(tf.TensorSpec(shape=[None, 543, 2], dtype=tf.float32), ),
+    # )
+    def call(self, data):
         N_FRAMES = tf.shape(data)[0]
+        data = tf.gather(data, self.LANDMARK_IDXS, axis=2)
         
-        # Gather Relevant Landmark Columns
-        data = tf.gather(data, self.LANDMARK_IDXS0, axis=1)
+        # Slice out face indicies, normalize across batch.        
+        face = tf.slice(data, [0, self.FACE_START, 0], [N_FRAMES, self.LEFT_HAND_START, 2])
+        face = tf.keras.utils.normalize(face, axis=1, order=2)
+        
+        # Slice out left_hand indicies, normalize across batch, reshape (x,y) into single vector.
+        left_hand = tf.slice(data, [0, self.LEFT_HAND_START, 0], [N_FRAMES, self.POSE_START-self.LEFT_HAND_START, 2])
+        left_hand = tf.keras.utils.normalize(left_hand, axis=1, order=2)
+        
+        # Slice out pose indicies, normalize across batch, reshape (x,y) into single vector.
+        pose = tf.slice(data, [0, self.POSE_START, 0], [N_FRAMES, self.RIGHT_HAND_START-self.POSE_START, 2])
+        pose = tf.keras.utils.normalize(pose, axis=1, order=2)
+        
+        # Slice out right_hand indicies, normalize across batch, reshape (x,y) into single vector.
+        right_hand = tf.slice(data, [0, self.RIGHT_HAND_START, 0], [N_FRAMES, tf.shape(data)[2] - self.RIGHT_HAND_START, 2])
+        right_hand = tf.keras.utils.normalize(right_hand, axis=1, order=2)
+        
+        # Concat landmarks back into same frame.
+        data = tf.concat([face, left_hand, pose, right_hand], 1)
         
         # Video fits in self.INPUT_SIZE
-        if N_FRAMES < self.INPUT_SIZE:
-            # Pad With -1 to indicate padding
-            non_empty_frames_idxs = tf.pad(non_empty_frames_idxs, [[0, self.INPUT_SIZE-N_FRAMES]], constant_values=-1)
-            # Pad Data With Zeros
-            data = tf.pad(data, [[0, self.INPUT_SIZE-N_FRAMES], [0,0], [0,0]], constant_values=0)
-            # Fill NaN Values With 0
-            data = tf.where(tf.math.is_nan(data), 0.0, data)
+        if N_FRAMES < self.INPUT_SIZE: # Number of frames we want
+            # Attention mask for frames that contain data. 
+            non_empty_frames_idxs = tf.pad(tf.range(0, N_FRAMES, 1), [[0, self.INPUT_SIZE-N_FRAMES]], constant_values=-1)
+            data = tf.pad(data, [[0, self.INPUT_SIZE-N_FRAMES], [0,0], [0,0]], constant_values=-1)
+            # Fill NaN Values With -1
+            data = tf.where(tf.math.is_nan(data), -1, data)
+            # Reshape into (Number of desired frames, (Number of landmarks * 2))
+            data = tf.reshape(data, [self.INPUT_SIZE, tf.shape(data)[1] * 2])
             return data, non_empty_frames_idxs
         # Video needs to be downsampled to INPUT_SIZE
         else:
-            # Repeat
-            if N_FRAMES < self.INPUT_SIZE**2:
-                repeats = tf.math.floordiv(self.INPUT_SIZE * self.INPUT_SIZE, N_FRAMES0)
-                data = tf.repeat(data, repeats=repeats, axis=0)
-                non_empty_frames_idxs = tf.repeat(non_empty_frames_idxs, repeats=repeats, axis=0)
-
-            # Pad To Multiple Of Input Size
-            pool_size = tf.math.floordiv(len(data), self.INPUT_SIZE)
-            if tf.math.mod(len(data), self.INPUT_SIZE) > 0:
-                pool_size += 1
-
-            if pool_size == 1:
-                pad_size = (pool_size * self.INPUT_SIZE) - len(data)
-            else:
-                pad_size = (pool_size * self.INPUT_SIZE) % len(data)
-
-            # Pad Start/End with Start/End value
-            pad_left = tf.math.floordiv(pad_size, 2) + tf.math.floordiv(self.INPUT_SIZE, 2)
-            pad_right = tf.math.floordiv(pad_size, 2) + tf.math.floordiv(self.INPUT_SIZE, 2)
-            if tf.math.mod(pad_size, 2) > 0:
-                pad_right += 1
-
-            # Pad By Concatenating Left/Right Edge Values
-            data = self.pad_edge(data, pad_left, 'LEFT')
-            data = self.pad_edge(data, pad_right, 'RIGHT')
-
-            # Pad Non Empty Frame Indices
-            non_empty_frames_idxs = self.pad_edge(non_empty_frames_idxs, pad_left, 'LEFT')
-            non_empty_frames_idxs = self.pad_edge(non_empty_frames_idxs, pad_right, 'RIGHT')
-
-            # Reshape to Mean Pool
-            data = tf.reshape(data, [self.INPUT_SIZE, -1, self.N_COLS, self.N_DIMS])
-            non_empty_frames_idxs = tf.reshape(non_empty_frames_idxs, [self.INPUT_SIZE, -1])
-
-            # Mean Pool
-            data = tf.experimental.numpy.nanmean(data, axis=1)
-            non_empty_frames_idxs = tf.experimental.numpy.nanmean(non_empty_frames_idxs, axis=1)
-
-            # Fill NaN Values With 0
-            data = tf.where(tf.math.is_nan(data), 0.0, data)
-            
+            # Downsample video using nearest interpolation method. 
+            data = tf.image.resize(data, size=(self.INPUT_SIZE, data.shape[1]), method='nearest')
+            # Fill NaN Values With -1.
+            data = tf.where(tf.math.is_nan(data), -1, data)
+            # Reshape into (Number of desired frames, (Number of landmarks * 2)).
+            data = tf.reshape(data, [self.INPUT_SIZE, tf.shape(data)[1] * 2])
+            # Create attention mask with all frames. 
+            non_empty_frames_idxs = tf.range(0, self.INPUT_SIZE, 1)
             return data, non_empty_frames_idxs

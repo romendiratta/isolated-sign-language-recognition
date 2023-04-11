@@ -41,15 +41,15 @@ class PreprocessLayer(tf.keras.layers.Layer):
         face = tf.slice(data, [0, self.FACE_START, 0], [N_FRAMES, self.LEFT_HAND_START, 2])
         face = tf.keras.utils.normalize(face, axis=1, order=2)
         
-        # Slice out left_hand indicies, normalize across batch, reshape (x,y) into single vector.
+        # Slice out left_hand indicies, normalize across batch.
         left_hand = tf.slice(data, [0, self.LEFT_HAND_START, 0], [N_FRAMES, self.POSE_START-self.LEFT_HAND_START, 2])
         left_hand = tf.keras.utils.normalize(left_hand, axis=1, order=2)
         
-        # Slice out pose indicies, normalize across batch, reshape (x,y) into single vector.
+        # Slice out pose indicies, normalize across batch.
         pose = tf.slice(data, [0, self.POSE_START, 0], [N_FRAMES, self.RIGHT_HAND_START-self.POSE_START, 2])
         pose = tf.keras.utils.normalize(pose, axis=1, order=2)
         
-        # Slice out right_hand indicies, normalize across batch, reshape (x,y) into single vector.
+        # Slice out right_hand indicies, normalize across batch.
         right_hand = tf.slice(data, [0, self.RIGHT_HAND_START, 0], [N_FRAMES, tf.shape(data)[2] - self.RIGHT_HAND_START, 2])
         right_hand = tf.keras.utils.normalize(right_hand, axis=1, order=2)
         

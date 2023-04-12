@@ -10,7 +10,7 @@ class LandmarkEmbedding(tf.keras.Model):
         # Embedding for missing landmark in frame, initizlied with zeros
         self.empty_embedding = self.add_weight(
             name=f'{self.name}_empty_embedding',
-            shape=[self.units],
+            shape=[self.UNITS],
             initializer=tf.keras.initializers.constant(0.0),
         )
         # Embedding

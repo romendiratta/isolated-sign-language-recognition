@@ -1,12 +1,14 @@
 import tensorflow as tf
+from layers.LandmarkEmbedding import LandmarkEmbedding
 
 class Embedding(tf.keras.Model):
-    def __init__(self, input_size, face_units, hands_units, pose_units, activation):
+    def __init__(self, input_size, face_units, hands_units, pose_units, units, activation):
         super(Embedding, self).__init__()
         self.INPUT_SIZE = input_size
         self.FACE_UNITS = face_units
         self.HANDS_UNITS = hands_units
         self.POSE_UNITS = pose_units
+        self.UNITS = units
         self.ACTIVATION = activation
         
     # def get_diffs(self, l):
@@ -22,17 +24,17 @@ class Embedding(tf.keras.Model):
         # Positional Embedding, initialized with zeros
         self.positional_embedding = tf.keras.layers.Embedding(self.INPUT_SIZE+1, self.UNITS, embeddings_initializer=tf.keras.initializers.constant(0.0))
         # Embedding layer for Landmarks
-        self.face_embedding = LandmarkEmbedding(self.FACE_UNITS, 'lips')
-        self.left_hand_embedding = LandmarkEmbedding(self.HANDS_UNITS, 'left_hand')
-        self.right_hand_embedding = LandmarkEmbedding(self.HANDS_UNITS, 'right_hand')
-        self.pose_embedding = LandmarkEmbedding(self.POSE_UNITS, 'pose')
+        self.face_embedding = LandmarkEmbedding(self.FACE_UNITS, 'lips', self.ACTIVATION)
+        self.left_hand_embedding = LandmarkEmbedding(self.HANDS_UNITS, 'left_hand', self.ACTIVATION)
+        self.right_hand_embedding = LandmarkEmbedding(self.HANDS_UNITS, 'right_hand', self.ACTIVATION)
+        self.pose_embedding = LandmarkEmbedding(self.POSE_UNITS, 'pose', self.ACTIVATION)
         # Landmark Weights
         self.landmark_weights = tf.Variable(tf.zeros([4], dtype=tf.float32), name='landmark_weights')
         # Fully Connected Layers for combined landmarks
         self.fc = tf.keras.Sequential([
-            tf.keras.layers.Dense(UNITS, name='fully_connected_1', use_bias=False, 
+            tf.keras.layers.Dense(self.UNITS, name='fully_connected_1', use_bias=False, 
                                   kernel_initializer=tf.keras.initializers.glorot_uniform, activation=self.ACTIVATION),
-            tf.keras.layers.Dense(UNITS, name='fully_connected_2', use_bias=False, kernel_initializer=tf.keras.initializers.he_uniform),
+            tf.keras.layers.Dense(self.UNITS, name='fully_connected_2', use_bias=False, kernel_initializer=tf.keras.initializers.he_uniform),
         ], name='fc')
 
 
@@ -46,7 +48,7 @@ class Embedding(tf.keras.Model):
         # Pose
         pose_embedding = self.pose_embedding(pose0)
         # Merge Embeddings of all landmarks with mean pooling
-        x = tf.stack((lips_embedding, left_hand_embedding, right_hand_embedding, pose_embedding), axis=3)
+        x = tf.stack((face_embedding, left_hand_embedding, right_hand_embedding, pose_embedding), axis=3)
         # Merge Landmarks with trainable attention weights
         x = x * tf.nn.softmax(self.landmark_weights)
         x = tf.reduce_sum(x, axis=3)

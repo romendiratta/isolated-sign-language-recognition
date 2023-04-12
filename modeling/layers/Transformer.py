@@ -1,13 +1,16 @@
 import tensorflow as tf
+from layers.MultiHeadAttention import MultiHeadAttention
+
 
 # Full Transformer
 class Transformer(tf.keras.Model):
-    def __init__(self, num_blocks, layer_norm_eps, units, mlp_ratio, activation, ):
+    def __init__(self, num_blocks, layer_norm_eps, units, mlp_ratio, mlp_dropout_ratio, activation):
         super(Transformer, self).__init__(name='transformer')
         self.num_blocks = num_blocks
         self.LAYER_NORM_EPS = layer_norm_eps
         self.UNITS = units
         self.MLP_RATIO = mlp_ratio
+        self.MLP_DROPOUT_RATIO = mlp_dropout_ratio
         self.ACTIVATION = activation
     
     def build(self, input_shape):

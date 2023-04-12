@@ -1,0 +1,25 @@
+FROM ubuntu:latest
+# this is needed to make sure we can see the log output
+ENV PYTHONUNBUFFERED=1
+ENV DEBIAN_FRONTEND noninteractive
+WORKDIR /app
+RUN apt-get update && apt-get install -y python3 python3-pip
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libglib2.0-0 \
+    libgl1-mesa-glx \
+    libgl1-mesa-dri
+
+
+# Install required Python packages
+RUN apt install -y python3-opencv
+RUN pip3 install opencv-python-headless
+RUN pip3 install paho-mqtt
+RUN pip3 install numpy
+RUN pip3 install pandas
+RUN pip3 install tensorflow
+# Copy your camera.py file into the container
+COPY camera.py .
+CMD python3 camera.py

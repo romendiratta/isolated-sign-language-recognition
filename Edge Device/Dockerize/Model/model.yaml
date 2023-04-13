@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: camera
+spec:
+  selector:
+    matchLabels:
+      app: mlmodel
+  replicas: 1 # tells deployment to run 1 pods matching the template
+  template:
+    metadata:
+      labels:
+        app: mlmodel
+    spec:
+      containers:
+      - name: mlmodel
+        image: dpakapd/mlmodel:v1
+        securityContext:
+          privileged: true

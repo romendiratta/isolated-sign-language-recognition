@@ -36,12 +36,12 @@ def upload_file(file_name, bucket, object_name=None):
         return False
     return True
 
-def get_dataset_partitions_tf(ds, ds_size, train_split=0.8, val_split=0.1, test_split=0.1, shuffle=True, shuffle_size=10000):
+def get_dataset_partitions_tf(ds, ds_size, train_split=0.8, val_split=0.1, test_split=0.1, shuffle=True, shuffle_size=10000, seed=42):
     assert (train_split + test_split + val_split) == 1
     
     if shuffle:
         # Specify seed to always have the same split distribution between runs
-        ds = ds.shuffle(shuffle_size, seed=12)
+        ds = ds.shuffle(shuffle_size, seed=seed)
     
     train_size = int(train_split * ds_size)
     val_size = int(val_split * ds_size)

@@ -2,6 +2,7 @@
 */.ipynb_checkpoints/
 modeling/*.npy
 modeling/wandb
+modeling/tuning
 **/*.pyc
 **/*.h5
 **/logs

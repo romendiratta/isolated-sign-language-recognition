@@ -186,8 +186,10 @@ def main(args):
                      project_name='v2')
     
     stop_early = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)
+    log_dir = "./logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
-    tuner.search(train.batch(config["TRAIN_BATCH_SIZE"]), validation_data=validation.batch(config["BATCH_SIZE_VAL"]), epochs=50, callbacks=[stop_early])
+    tuner.search(train.batch(config["TRAIN_BATCH_SIZE"]), validation_data=validation.batch(config["BATCH_SIZE_VAL"]), epochs=50, callbacks=[stop_early, tensorboard_callback])
     
     best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
 

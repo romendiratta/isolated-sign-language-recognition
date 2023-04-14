@@ -2,9 +2,11 @@ import sys
 import os
 import json
 import wandb
+import datetime
 import numpy as np
 
 from utils.Utils import get_dataset_partitions_tf
+from utils.Callbacks import lrfn, WeightDecayCallback
 
 import tensorflow as tf
 SEED = 57
@@ -19,21 +21,23 @@ import layers
 config = None
 
 DIM_NAMES = ['x', 'y']
+TRANSFORMERV1 = True
 
 # Hyperparamters
 # Epsilon value for layer normalisation
-LAYER_NORM_EPS = [1e-5, 1e-6]
+LAYER_NORM_EPS = [1e-6]
 # Dense layer units for landmarks
-LANDMARK_UNITS = [384, 512, 768]
+LANDMARK_UNITS = [512]
 # final embedding and transformer embedding size
-UNITS = [512, 768, 1024]
+UNITS = [512, 1024]
 
 # Transformer
-NUM_BLOCKS = [2, 3, 4]
+NUM_BLOCKS = [2, 4, 6]
 MLP_RATIO = 2
+NUM_HEADS = 8
 # Dropout
 MLP_DROPOUT_RATIO = 0.30 # Transformer
-CLASSIFIER_DROPOUT_RATIO = [0.10, 0.20, 0.30]
+CLASSIFIER_DROPOUT_RATIO = [0.10, 0.20]
 # Initiailizers
 INIT_GLOROT_UNIFORM = tf.keras.initializers.glorot_uniform
 # Activations
@@ -42,6 +46,7 @@ ACTIVATION = tf.keras.activations.gelu
 LEARNING_RATE = [0.01, 0.001, 0.0001]
 # Weight Decay
 WEIGHT_DECAY = [0.0001, 0.00001]
+# NUM_HEADS
 
 # Indicies for slicing. 
 FACE_IDXS = [0, 6, 7, 11, 12, 13, 14, 15, 17, 22, 23, 24, 25, 26, 30, 31, 
@@ -188,8 +193,12 @@ def main(args):
     stop_early = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)
     log_dir = "./logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+    lr_callback = tf.keras.callbacks.LearningRateScheduler(lambda step: LR_SCHEDULE[step], verbose=1)
+    
+    LR_SCHEDULE = [lrfn(step, num_warmup_steps=config["N_WARMUP_EPOCHS"], lr_max=config["LEARNING_RATE"], num_cycles=0.50) for step in range(config["N_EPOCHS"])]
 
-    tuner.search(train.batch(config["TRAIN_BATCH_SIZE"]), validation_data=validation.batch(config["BATCH_SIZE_VAL"]), epochs=50, callbacks=[stop_early, tensorboard_callback])
+
+    tuner.search(train.batch(config["TRAIN_BATCH_SIZE"]), validation_data=validation.batch(config["BATCH_SIZE_VAL"]), epochs=50, callbacks=[stop_early, tensorboard_callback, lr_callback, WeightDecayCallback(),])
     
     best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
 

@@ -61,8 +61,8 @@ class PreprocessLayer(tf.keras.layers.Layer):
             # Attention mask for frames that contain data. 
             non_empty_frames_idxs = tf.pad(tf.range(0, N_FRAMES, 1), [[0, self.INPUT_SIZE-N_FRAMES]], constant_values=-1)
             data = tf.pad(data, [[0, self.INPUT_SIZE-N_FRAMES], [0,0], [0,0]], constant_values=-1)
-            # Fill NaN Values With -1
-            data = tf.where(tf.math.is_nan(data), -1, data)
+            # Fill NaN Values With 0
+            data = tf.where(tf.math.is_nan(data), 0, data)
             # Reshape into (Number of desired frames, (Number of landmarks * 2))
             data = tf.reshape(data, [self.INPUT_SIZE, tf.shape(data)[1] * 2])
             return data, non_empty_frames_idxs
@@ -70,8 +70,8 @@ class PreprocessLayer(tf.keras.layers.Layer):
         else:
             # Downsample video using nearest interpolation method. 
             data = tf.image.resize(data, size=(self.INPUT_SIZE, data.shape[1]), method='nearest')
-            # Fill NaN Values With -1.
-            data = tf.where(tf.math.is_nan(data), -1, data)
+            # Fill NaN Values With 0
+            data = tf.where(tf.math.is_nan(data), 0, data)
             # Reshape into (Number of desired frames, (Number of landmarks * 2)).
             data = tf.reshape(data, [self.INPUT_SIZE, tf.shape(data)[1] * 2])
             # Create attention mask with all frames. 

@@ -22,13 +22,13 @@ import layers
 config = None
 
 DIM_NAMES = ['x', 'y']
-TRANSFORMERV1 = False
+TRANSFORMERV1 = True
 
 # Hyperparamters
 # Epsilon value for layer normalisation
 LAYER_NORM_EPS = [1e-6]
 # Dense layer units for landmarks
-LANDMARK_UNITS = [384]
+LANDMARK_UNITS = [384,512]
 # final embedding and transformer embedding size
 UNITS = [384, 512]
 

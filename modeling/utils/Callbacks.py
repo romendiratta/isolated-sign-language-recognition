@@ -1,7 +1,9 @@
 import math
 import tensorflow as tf
 
-def lrfn(current_step, num_warmup_steps, lr_max, num_cycles=0.50, num_training_steps=config["N_EPOCHS"]):
+
+
+def lrfn(current_step, num_warmup_steps, lr_max, num_cycles=0.50, num_training_steps=10, WARMUP_METHOD='log'):
     
     if current_step < num_warmup_steps:
         if WARMUP_METHOD == 'log':

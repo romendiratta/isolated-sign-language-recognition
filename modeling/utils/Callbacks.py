@@ -1,5 +1,5 @@
 import math
-import tensoflow as tf
+import tensorflow as tf
 
 def lrfn(current_step, num_warmup_steps, lr_max, num_cycles=0.50, num_training_steps=config["N_EPOCHS"]):
     

@@ -22,7 +22,7 @@ import layers
 config = None
 
 DIM_NAMES = ['x', 'y']
-TRANSFORMERV1 = True
+TRANSFORMERV1 = False
 
 # Hyperparamters
 # Epsilon value for layer normalisation
@@ -136,8 +136,7 @@ def get_model(hp):
         # Pooling
         x = tf.reduce_sum(x * mask, axis=1) / tf.reduce_sum(mask, axis=1)
     else:
-        for _ in range(hp_num_blocks):
-            x = layers.TransformerV2(x.shape, NUM_HEADS, hp_units, MLP_DROPOUT_RATIO, hp_layer_norm_eps)(x)
+        x = layers.TransformerV2(x.shape, NUM_HEADS, hp_units, MLP_DROPOUT_RATIO, hp_layer_norm_eps, hp_num_blocks)(x)
         x = tf.keras.layers.Flatten()(x)
     
     # Classifier Dropout
@@ -168,7 +167,7 @@ def get_model(hp):
         tf.keras.metrics.SparseTopKCategoricalAccuracy(k=10, name='top_10_acc'),
     ]
     
-    model.compile(loss=loss, optimizer=optimizer, metrics=metrics, run_eagerly=False)
+    model.compile(loss=loss, optimizer=optimizer, metrics=metrics, run_eagerly=True)
     
     return model
 

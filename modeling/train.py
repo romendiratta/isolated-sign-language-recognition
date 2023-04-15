@@ -22,22 +22,22 @@ import layers
 config = None
 
 DIM_NAMES = ['x', 'y']
-TRANSFORMERV1 = False
+TRANSFORMERV1 = True
 
 # Hyperparamters
 # Epsilon value for layer normalisation
 LAYER_NORM_EPS = [1e-6]
 # Dense layer units for landmarks
-LANDMARK_UNITS = [512]
+LANDMARK_UNITS = [384]
 # final embedding and transformer embedding size
-UNITS = [512, 1024]
+UNITS = [384, 512]
 
 # Transformer
 NUM_BLOCKS = [2, 4, 6]
 MLP_RATIO = 2
 NUM_HEADS = 8
 # Dropout
-MLP_DROPOUT_RATIO = 0.30 # Transformer
+MLP_DROPOUT_RATIO = 0.2 # Transformer
 CLASSIFIER_DROPOUT_RATIO = [0.10, 0.20]
 # Initiailizers
 INIT_GLOROT_UNIFORM = tf.keras.initializers.glorot_uniform
@@ -168,7 +168,7 @@ def get_model(hp):
         tf.keras.metrics.SparseTopKCategoricalAccuracy(k=10, name='top_10_acc'),
     ]
     
-    model.compile(loss=loss, optimizer=optimizer, metrics=metrics, run_eagerly=True)
+    model.compile(loss=loss, optimizer=optimizer, metrics=metrics, run_eagerly=False)
     
     return model
 
@@ -198,7 +198,7 @@ def main(args):
                      directory='tuning',
                      project_name='v2')
     
-    stop_early = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)
+    stop_early = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=15)
     log_dir = "./logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
     

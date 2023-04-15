@@ -12,6 +12,7 @@ import tensorflow as tf
 SEED = 57
 tf.get_logger().setLevel('INFO')
 tf.keras.utils.set_random_seed(SEED)
+tf.keras.backend.clear_session()
 
 from tensorflow import keras
 import keras_tuner as kt
@@ -21,7 +22,7 @@ import layers
 config = None
 
 DIM_NAMES = ['x', 'y']
-TRANSFORMERV1 = True
+TRANSFORMERV1 = False
 
 # Hyperparamters
 # Epsilon value for layer normalisation
@@ -46,7 +47,6 @@ ACTIVATION = tf.keras.activations.gelu
 LEARNING_RATE = [0.01, 0.001, 0.0001]
 # Weight Decay
 WEIGHT_DECAY = [0.0001, 0.00001]
-# NUM_HEADS
 
 # Indicies for slicing. 
 FACE_IDXS = [0, 6, 7, 11, 12, 13, 14, 15, 17, 22, 23, 24, 25, 26, 30, 31, 
@@ -127,11 +127,19 @@ def get_model(hp):
     hp_layer_norm_eps = hp.Choice('layer_norm_eps', values=LAYER_NORM_EPS)
     hp_num_blocks = hp.Choice('num_blocks', values=NUM_BLOCKS)
     
-    transformer_layer = layers.Transformer(hp_num_blocks, hp_layer_norm_eps, hp_units, MLP_RATIO, MLP_DROPOUT_RATIO, ACTIVATION)
-    x = transformer_layer(x, mask)
+    transformer_input_shape = x.shape
     
-    # Pooling
-    x = tf.reduce_sum(x * mask, axis=1) / tf.reduce_sum(mask, axis=1)
+    if (TRANSFORMERV1):
+        # Encoder Transformer Blocks
+        transformer_layer = layers.Transformer(hp_num_blocks, hp_layer_norm_eps, hp_units, MLP_RATIO, MLP_DROPOUT_RATIO, ACTIVATION)
+        x = transformer_layer(x, mask)
+        # Pooling
+        x = tf.reduce_sum(x * mask, axis=1) / tf.reduce_sum(mask, axis=1)
+    else:
+        for _ in range(hp_num_blocks):
+            x = layers.TransformerV2(x.shape, NUM_HEADS, hp_units, MLP_DROPOUT_RATIO, hp_layer_norm_eps)(x)
+        x = tf.keras.layers.Flatten()(x)
+    
     # Classifier Dropout
     hp_classifier_dropout_ratio = hp.Choice('classifier_dropout_ratio', values=CLASSIFIER_DROPOUT_RATIO)
     
@@ -160,7 +168,7 @@ def get_model(hp):
         tf.keras.metrics.SparseTopKCategoricalAccuracy(k=10, name='top_10_acc'),
     ]
     
-    model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
+    model.compile(loss=loss, optimizer=optimizer, metrics=metrics, run_eagerly=True)
     
     return model
 
@@ -172,7 +180,7 @@ def main(args):
     global config
     config = load_config_file(args[1])
     
-    setup_wandb(config)
+    # setup_wandb(config)
     
     # Load dataset
     X, y, NON_EMPTY_FRAME_IDXS = load_data_from_fs()
@@ -193,12 +201,11 @@ def main(args):
     stop_early = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)
     log_dir = "./logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
-    lr_callback = tf.keras.callbacks.LearningRateScheduler(lambda step: LR_SCHEDULE[step], verbose=1)
     
     LR_SCHEDULE = [lrfn(step, num_warmup_steps=config["N_WARMUP_EPOCHS"], lr_max=config["LEARNING_RATE"], num_cycles=0.50) for step in range(config["N_EPOCHS"])]
+    lr_callback = tf.keras.callbacks.LearningRateScheduler(lambda step: LR_SCHEDULE[step], verbose=1)
 
-
-    tuner.search(train.batch(config["TRAIN_BATCH_SIZE"]), validation_data=validation.batch(config["BATCH_SIZE_VAL"]), epochs=50, callbacks=[stop_early, tensorboard_callback, lr_callback, WeightDecayCallback(),])
+    tuner.search(train.batch(config["TRAIN_BATCH_SIZE"]), validation_data=validation.batch(config["BATCH_SIZE_VAL"]), epochs=50, callbacks=[stop_early, tensorboard_callback, lr_callback, WeightDecayCallback(config["WD_RATIO"]),])
     
     best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
 

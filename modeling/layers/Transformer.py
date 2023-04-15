@@ -3,15 +3,27 @@ from layers.MultiHeadAttention import MultiHeadAttention
 
 
 # Full Transformer
-class Transformer(tf.keras.Model):
+class Transformer(tf.keras.layers.Layer):
     def __init__(self, num_blocks, layer_norm_eps, units, mlp_ratio, mlp_dropout_ratio, activation):
         super(Transformer, self).__init__(name='transformer')
-        self.num_blocks = num_blocks
+        self.NUM_BLOCKS = num_blocks
         self.LAYER_NORM_EPS = layer_norm_eps
         self.UNITS = units
         self.MLP_RATIO = mlp_ratio
         self.MLP_DROPOUT_RATIO = mlp_dropout_ratio
         self.ACTIVATION = activation
+        
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({
+            'NUM_BLOCKS': self.NUM_BLOCKS,
+            'LAYER_NORM_EPS': self.LAYER_NORM_EPS,
+            'MLP_RATIO': self.MLP_RATIO,
+            'MLP_DROPOUT_RATIO': self.MLP_DROPOUT_RATIO,
+            'UNITS': self.UNITS,
+            'ACTIVATION': self.ACTIVATION,
+        })
+        return config
     
     def build(self, input_shape):
         self.ln_1s = []
@@ -19,7 +31,7 @@ class Transformer(tf.keras.Model):
         self.ln_2s = []
         self.mlps = []
         # Make Transformer Blocks
-        for i in range(self.num_blocks):
+        for i in range(self.NUM_BLOCKS):
             # First Layer Normalisation
             self.ln_1s.append(tf.keras.layers.LayerNormalization(epsilon=self.LAYER_NORM_EPS))
             # Multi Head Attention

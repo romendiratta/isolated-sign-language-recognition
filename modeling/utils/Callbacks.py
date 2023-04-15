@@ -22,5 +22,5 @@ class WeightDecayCallback(tf.keras.callbacks.Callback):
         self.wd_ratio = wd_ratio
     
     def on_epoch_begin(self, epoch, logs=None):
-        model.optimizer.weight_decay = model.optimizer.learning_rate * self.wd_ratio
-        print(f'learning rate: {model.optimizer.learning_rate.numpy():.2e}, weight decay: {model.optimizer.weight_decay.numpy():.2e}')
+        self.model.optimizer.weight_decay = self.model.optimizer.learning_rate * self.wd_ratio
+        print(f'learning rate: {self.model.optimizer.learning_rate.numpy():.2e}, weight decay: {self.model.optimizer.weight_decay.numpy():.2e}')

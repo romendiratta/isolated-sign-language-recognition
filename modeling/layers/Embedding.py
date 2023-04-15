@@ -1,7 +1,7 @@
 import tensorflow as tf
 from layers.LandmarkEmbedding import LandmarkEmbedding
 
-class Embedding(tf.keras.Model):
+class Embedding(tf.keras.layers.Layer):
     def __init__(self, input_size, face_units, hands_units, pose_units, units, activation):
         super(Embedding, self).__init__()
         self.INPUT_SIZE = input_size
@@ -19,12 +19,24 @@ class Embedding(tf.keras.Model):
     #     diffs = tf.expand_dims(l, 3) - other
     #     diffs = tf.reshape(diffs, [-1, config["INPUT_SIZE"], S*S])
     #     return diffs
+    
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({
+            'INPUT_SIZE': self.INPUT_SIZE,
+            'FACE_UNITS': self.FACE_UNITS,
+            'HANDS_UNITS': self.HANDS_UNITS,
+            'POSE_UNITS': self.POSE_UNITS,
+            'UNITS': self.UNITS,
+            'ACTIVATION': self.ACTIVATION,
+        })
+        return config
 
     def build(self, input_shape):
         # Positional Embedding, initialized with zeros
         self.positional_embedding = tf.keras.layers.Embedding(self.INPUT_SIZE+1, self.UNITS, embeddings_initializer=tf.keras.initializers.constant(0.0))
         # Embedding layer for Landmarks
-        self.face_embedding = LandmarkEmbedding(self.FACE_UNITS, 'lips', self.ACTIVATION)
+        self.face_embedding = LandmarkEmbedding(self.FACE_UNITS, 'face', self.ACTIVATION)
         self.left_hand_embedding = LandmarkEmbedding(self.HANDS_UNITS, 'left_hand', self.ACTIVATION)
         self.right_hand_embedding = LandmarkEmbedding(self.HANDS_UNITS, 'right_hand', self.ACTIVATION)
         self.pose_embedding = LandmarkEmbedding(self.POSE_UNITS, 'pose', self.ACTIVATION)
@@ -38,7 +50,7 @@ class Embedding(tf.keras.Model):
         ], name='fc')
 
 
-    def call(self, face0, left_hand0, right_hand0, pose0, non_empty_frame_idxs, training=False):
+    def call(self, face0, left_hand0, right_hand0, pose0, non_empty_frame_idxs,training=False):
         # Face
         face_embedding = self.face_embedding(face0)
         # Left Hand

@@ -25,6 +25,14 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         self.wv = [tf.keras.layers.Dense(self.depth) for i in range(num_of_heads)]
         self.wo = tf.keras.layers.Dense(d_model)
         self.softmax = tf.keras.layers.Softmax()
+    
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({
+            'd_model': self.d_model,
+            'num_of_heads': self.num_of_heads
+        })
+        return config
         
     def call(self,x, attention_mask):
         multi_attn = []

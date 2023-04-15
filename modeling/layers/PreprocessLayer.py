@@ -30,6 +30,13 @@ class PreprocessLayer(tf.keras.layers.Layer):
         self.POSE_START = tf.constant(self.LEFT_HAND_START + len(self.LEFT_HAND_IDXS), dtype=tf.int32)
         self.RIGHT_HAND_START = tf.constant(self.POSE_START + len(self.POSE_IDXS), dtype=tf.int32)
     
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({
+            'INPUT_SIZE': self.INPUT_SIZE,
+        })
+        return config
+    
     # @tf.function(
     #     input_signature=(tf.TensorSpec(shape=[None, 543, 2], dtype=tf.float32), ),
     # )

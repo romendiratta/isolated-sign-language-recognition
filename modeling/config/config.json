@@ -1,10 +1,10 @@
 {
     "DATA_VERSION": 3,
-    "MODEL_VERSION": 2,
+    "MODEL_VERSION": 3,
     "N_COLS0": 543,
     "N_COLS": 227,
     "N_DIMS": 2, 
-    "N_EPOCHS": 100,
+    "N_EPOCHS": 150,
     "TRAIN_BATCH_SIZE": 256,
     "INPUT_SIZE":38,
     "BATCH_ALL_SIGNS_N": 4,

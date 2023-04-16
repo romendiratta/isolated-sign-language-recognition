@@ -40,7 +40,8 @@ class Transformer(tf.keras.layers.Layer):
             self.ln_2s.append(tf.keras.layers.LayerNormalization(epsilon=self.LAYER_NORM_EPS))
             # Multi Layer Perception
             self.mlps.append(tf.keras.Sequential([
-                tf.keras.layers.Dense(self.UNITS * self.MLP_RATIO, activation=self.ACTIVATION, kernel_initializer=tf.keras.initializers.glorot_uniform),
+                tf.keras.layers.Dense(self.UNITS * self.MLP_RATIO, activation=self.ACTIVATION, 
+                                      kernel_initializer=tf.keras.initializers.glorot_uniform),
                 tf.keras.layers.Dropout(self.MLP_DROPOUT_RATIO),
                 tf.keras.layers.Dense(self.UNITS, kernel_initializer=tf.keras.initializers.he_uniform),
             ]))

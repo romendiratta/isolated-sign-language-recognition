@@ -56,35 +56,35 @@ class PreprocessLayer(tf.keras.layers.Layer):
         N_FRAMES = tf.shape(data)[0]
         data = tf.gather(data, self.LANDMARK_IDXS, axis=2)
         
-        # Slice out face indicies, normalize across batch.        
-        face = tf.slice(data, [0, self.FACE_START, 0], [N_FRAMES, self.LEFT_HAND_START, 2])
-        face = tf.keras.utils.normalize(face, axis=1, order=2)
+#         # Slice out face indicies, normalize across batch.        
+#         face = tf.slice(data, [0, self.FACE_START, 0], [N_FRAMES, self.LEFT_HAND_START, 2])
+#         # face = tf.keras.utils.normalize(face, axis=1, order=2)
         
-        # Slice out left_hand indicies, normalize across batch.
-        left_hand = tf.slice(data, [0, self.LEFT_HAND_START, 0], [N_FRAMES, self.POSE_START-self.LEFT_HAND_START, 2])
-        left_hand = tf.keras.utils.normalize(left_hand, axis=1, order=2)
+#         # Slice out left_hand indicies, normalize across batch.
+#         left_hand = tf.slice(data, [0, self.LEFT_HAND_START, 0], [N_FRAMES, self.POSE_START-self.LEFT_HAND_START, 2])
+#         # left_hand = tf.keras.utils.normalize(left_hand, axis=1, order=2)
         
-        # Slice out pose indicies, normalize across batch.
-        pose = tf.slice(data, [0, self.POSE_START, 0], [N_FRAMES, self.RIGHT_HAND_START-self.POSE_START, 2])
-        pose = tf.keras.utils.normalize(pose, axis=1, order=2)
+#         # Slice out pose indicies, normalize across batch.
+#         pose = tf.slice(data, [0, self.POSE_START, 0], [N_FRAMES, self.RIGHT_HAND_START-self.POSE_START, 2])
+#         # pose = tf.keras.utils.normalize(pose, axis=1, order=2)
         
-        # Slice out right_hand indicies, normalize across batch.
-        right_hand = tf.slice(data, [0, self.RIGHT_HAND_START, 0], [N_FRAMES, tf.shape(data)[2] - self.RIGHT_HAND_START, 2])
-        right_hand = tf.keras.utils.normalize(right_hand, axis=1, order=2)
+#         # Slice out right_hand indicies, normalize across batch.
+#         right_hand = tf.slice(data, [0, self.RIGHT_HAND_START, 0], [N_FRAMES, tf.shape(data)[2] - self.RIGHT_HAND_START, 2])
+#         # right_hand = tf.keras.utils.normalize(right_hand, axis=1, order=2)
         
-        # Concat landmarks back into same frame.
-        data = tf.concat([face, left_hand, pose, right_hand], 1)
+#         # Concat landmarks back into same frame.
+#         data = tf.concat([face, left_hand, pose, right_hand], 1)
         
         
         # Video fits in self.INPUT_SIZE
         if N_FRAMES < self.INPUT_SIZE: # Number of frames we want
             # Attention mask for frames that contain data. 
             non_empty_frames_idxs = tf.pad(non_empty_frames_idxs, [[0, self.INPUT_SIZE-N_FRAMES]], constant_values=-1)
-            data = tf.pad(data, [[0, self.INPUT_SIZE-N_FRAMES], [0,0], [0,0]], constant_values=-1)
+            data = tf.pad(data, [[0, self.INPUT_SIZE-N_FRAMES], [0,0], [0,0]], constant_values=0)
             # Fill NaN Values With 0
             data = tf.where(tf.math.is_nan(data), 0, data)
             # Reshape into (Number of desired frames, (Number of landmarks * 2))
-            data = tf.reshape(data, [self.INPUT_SIZE, tf.shape(data)[1] * 2])
+            # data = tf.reshape(data, [self.INPUT_SIZE, tf.shape(data)[1] * 2])
             return data, non_empty_frames_idxs
         # Video needs to be downsampled to INPUT_SIZE
         else:
@@ -93,7 +93,7 @@ class PreprocessLayer(tf.keras.layers.Layer):
             # Fill NaN Values With 0
             data = tf.where(tf.math.is_nan(data), 0, data)
             # Reshape into (Number of desired frames, (Number of landmarks * 2)).
-            data = tf.reshape(data, [self.INPUT_SIZE, tf.shape(data)[1] * 2])
+            # data = tf.reshape(data, [self.INPUT_SIZE, tf.shape(data)[1] * 2])
             # Create attention mask with all frames. 
             non_empty_frames_idxs = tf.range(0, self.INPUT_SIZE, 1)
             return data, non_empty_frames_idxs

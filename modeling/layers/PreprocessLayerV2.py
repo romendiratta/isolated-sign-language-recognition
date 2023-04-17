@@ -1,8 +1,9 @@
 import tensorflow as tf
+# import numpy as np
 
-class PreprocessLayer(tf.keras.layers.Layer):
+class PreprocessLayerV2(tf.keras.layers.Layer):
     def __init__(self, INPUT_SIZE):
-        super(PreprocessLayer, self).__init__()
+        super(PreprocessLayerV2, self).__init__()
         self.INPUT_SIZE = INPUT_SIZE
         # Indicies in original data. 
         self.FACE_IDXS = tf.constant([0, 6, 7, 11, 12, 13, 14, 15, 17, 22, 23, 24, 25, 26, 30, 31, 
@@ -21,7 +22,7 @@ class PreprocessLayer(tf.keras.layers.Layer):
         self.LEFT_HAND_IDXS = tf.constant(tf.range(468, 489, delta=1, dtype=tf.int32))
         self.RIGHT_HAND_IDXS = tf.constant(tf.range(522, 543, delta=1, dtype=tf.int32))
         
-        self.HAND_IDXS = tf.constant(tf.concat([self.LEFT_HAND_IDXS, self.RIGHT_HAND_IDXS]))
+        self.HAND_IDXS = tf.constant(tf.concat([self.LEFT_HAND_IDXS, self.RIGHT_HAND_IDXS], 0), dtype=tf.int32)
             
         # All landmarks that are used for modeling. 
         self.LANDMARK_IDXS = tf.constant(tf.concat([self.FACE_IDXS, self.POSE_IDXS, self.LEFT_HAND_IDXS, self.RIGHT_HAND_IDXS], 0), dtype=tf.int32)
@@ -39,13 +40,26 @@ class PreprocessLayer(tf.keras.layers.Layer):
         })
         return config
     
-    # @tf.function(
-    #     input_signature=(tf.TensorSpec(shape=[None, 543, 2], dtype=tf.float32), ),
-    # )
+    def get_mean_std(self, LIPS_IDXS, data):
+                
+        xs = tf.reshape(tf.transpose(data, [2,0,1]), [2,tf.size(LIPS_IDXS)*tf.shape(data)[0]])[0]
+        ys = tf.reshape(tf.transpose(data, [2,0,1]), [2,tf.size(LIPS_IDXS)*tf.shape(data)[0]])[1]
+            
+        LIPS_MEAN_X = tf.math.reduce_mean(xs)
+        LIPS_STD_X = tf.math.reduce_std(xs)
+        LIPS_MEAN_Y = tf.math.reduce_mean(ys)
+        LIPS_STD_Y = tf.math.reduce_std(ys)
+
+        LIPS_MEAN = tf.stack([LIPS_MEAN_X, LIPS_MEAN_Y])
+        LIPS_STD = tf.stack([LIPS_STD_X, LIPS_STD_Y])
+
+        return LIPS_MEAN, LIPS_STD
+    
+    @tf.function(input_signature=(tf.TensorSpec(shape=[None, 543, 2], dtype=tf.float32),),)
     def call(self, data):
         
         # Filter Out Frames With Empty Hand Data
-        frames_hands_nansum = tf.experimental.numpy.nanmean(tf.gather(data, self.HAND_IDXS0, axis=1), axis=[1,2])
+        frames_hands_nansum = tf.experimental.numpy.nanmean(tf.gather(data, self.HAND_IDXS, axis=1), axis=[1,2])
         non_empty_frames_idxs = tf.where(frames_hands_nansum > 0)
         non_empty_frames_idxs = tf.squeeze(non_empty_frames_idxs, axis=1)
         data = tf.gather(data, non_empty_frames_idxs, axis=0)
@@ -54,46 +68,74 @@ class PreprocessLayer(tf.keras.layers.Layer):
         non_empty_frames_idxs = tf.cast(non_empty_frames_idxs, tf.float32) 
         
         N_FRAMES = tf.shape(data)[0]
-        data = tf.gather(data, self.LANDMARK_IDXS, axis=2)
+        data = tf.gather(data, self.LANDMARK_IDXS, axis=1)
         
-#         # Slice out face indicies, normalize across batch.        
-#         face = tf.slice(data, [0, self.FACE_START, 0], [N_FRAMES, self.LEFT_HAND_START, 2])
-#         # face = tf.keras.utils.normalize(face, axis=1, order=2)
+        # Slice out face indicies, normalize across batch.        
+        face = tf.slice(data, [0, self.FACE_START, 0], [N_FRAMES, self.LEFT_HAND_START, 2])
+        face_mean, face_std = self.get_mean_std(self.FACE_IDXS, face)
+        face = tf.where(
+                    tf.math.equal(face, 0.0),
+                    0.0,
+                    (face - face_mean) / face_std,
+                )
+        # face = tf.keras.utils.normalize(face, axis=-1, order=2)
         
 #         # Slice out left_hand indicies, normalize across batch.
-#         left_hand = tf.slice(data, [0, self.LEFT_HAND_START, 0], [N_FRAMES, self.POSE_START-self.LEFT_HAND_START, 2])
-#         # left_hand = tf.keras.utils.normalize(left_hand, axis=1, order=2)
+        left_hand = tf.slice(data, [0, self.LEFT_HAND_START, 0], [N_FRAMES, self.POSE_START-self.LEFT_HAND_START, 2])
+        # left_hand = tf.keras.utils.normalize(left_hand, axis=1, order=2)
+        # left_hand = tf.linalg.normalize(left_hand, axis=1)
+        left_hand_mean, left_hand_std = self.get_mean_std(self.LEFT_HAND_IDXS, left_hand)
+        left_hand = tf.where(
+                    tf.math.equal(left_hand, 0.0),
+                    0.0,
+                    (left_hand - left_hand_mean) / left_hand_std,
+                )
         
 #         # Slice out pose indicies, normalize across batch.
-#         pose = tf.slice(data, [0, self.POSE_START, 0], [N_FRAMES, self.RIGHT_HAND_START-self.POSE_START, 2])
-#         # pose = tf.keras.utils.normalize(pose, axis=1, order=2)
+        pose = tf.slice(data, [0, self.POSE_START, 0], [N_FRAMES, self.RIGHT_HAND_START-self.POSE_START, 2])
+        # pose = tf.keras.utils.normalize(pose, axis=1, order=2)
+        pose_mean, pose_std = self.get_mean_std(self.POSE_IDXS, pose)
+        pose = tf.where(
+                    tf.math.equal(pose, 0.0),
+                    0.0,
+                    (pose - pose_mean) / pose_std,
+                )
         
 #         # Slice out right_hand indicies, normalize across batch.
-#         right_hand = tf.slice(data, [0, self.RIGHT_HAND_START, 0], [N_FRAMES, tf.shape(data)[2] - self.RIGHT_HAND_START, 2])
+        right_hand = tf.slice(data, [0, self.RIGHT_HAND_START, 0], [N_FRAMES, tf.shape(data)[1] - self.RIGHT_HAND_START, 2])
 #         # right_hand = tf.keras.utils.normalize(right_hand, axis=1, order=2)
+        right_hand_mean, right_hand_std = self.get_mean_std(self.RIGHT_HAND_IDXS, right_hand)
+        right_hand = tf.where(
+                    tf.math.equal(right_hand, 0.0),
+                    0.0,
+                    (right_hand - right_hand_mean) / right_hand_std,
+                )
         
-#         # Concat landmarks back into same frame.
-#         data = tf.concat([face, left_hand, pose, right_hand], 1)
+        
+        # Concat landmarks back into same frame.
+        data = tf.concat([face, left_hand, pose, right_hand], 1)
         
         
         # Video fits in self.INPUT_SIZE
         if N_FRAMES < self.INPUT_SIZE: # Number of frames we want
             # Attention mask for frames that contain data. 
+            
             non_empty_frames_idxs = tf.pad(non_empty_frames_idxs, [[0, self.INPUT_SIZE-N_FRAMES]], constant_values=-1)
+            # non_empty_frames_idxs = tf.pad(tf.range(0, N_FRAMES, 1), [[0, self.INPUT_SIZE-N_FRAMES]], constant_values=-1)
             data = tf.pad(data, [[0, self.INPUT_SIZE-N_FRAMES], [0,0], [0,0]], constant_values=0)
             # Fill NaN Values With 0
-            data = tf.where(tf.math.is_nan(data), 0, data)
+            data = tf.where(tf.math.is_nan(data), 0.0, data)
             # Reshape into (Number of desired frames, (Number of landmarks * 2))
-            # data = tf.reshape(data, [self.INPUT_SIZE, tf.shape(data)[1] * 2])
+            data = tf.reshape(data, [self.INPUT_SIZE, tf.shape(data)[1] * 2])
             return data, non_empty_frames_idxs
         # Video needs to be downsampled to INPUT_SIZE
         else:
             # Downsample video using nearest interpolation method. 
             data = tf.image.resize(data, size=(self.INPUT_SIZE, data.shape[1]), method='nearest')
             # Fill NaN Values With 0
-            data = tf.where(tf.math.is_nan(data), 0, data)
+            data = tf.where(tf.math.is_nan(data), 0.0, data)
             # Reshape into (Number of desired frames, (Number of landmarks * 2)).
-            # data = tf.reshape(data, [self.INPUT_SIZE, tf.shape(data)[1] * 2])
+            data = tf.reshape(data, [self.INPUT_SIZE, tf.shape(data)[1] * 2])
             # Create attention mask with all frames. 
-            non_empty_frames_idxs = tf.range(0, self.INPUT_SIZE, 1)
+            non_empty_frames_idxs = tf.range(0, self.INPUT_SIZE, 1, dtype=tf.float32)
             return data, non_empty_frames_idxs

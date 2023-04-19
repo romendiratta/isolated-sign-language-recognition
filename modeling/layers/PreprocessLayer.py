@@ -37,12 +37,10 @@ class PreprocessLayer(tf.keras.layers.Layer):
         })
         return config
     
-    # @tf.function(
-    #     input_signature=(tf.TensorSpec(shape=[None, 543, 2], dtype=tf.float32), ),
-    # )
+    @tf.function(input_signature=(tf.TensorSpec(shape=[None, 543, 2], dtype=tf.float32),),)
     def call(self, data):
         N_FRAMES = tf.shape(data)[0]
-        data = tf.gather(data, self.LANDMARK_IDXS, axis=2)
+        data = tf.gather(data, self.LANDMARK_IDXS, axis=1)
         
         # Slice out face indicies, normalize across batch.        
         face = tf.slice(data, [0, self.FACE_START, 0], [N_FRAMES, self.LEFT_HAND_START, 2])

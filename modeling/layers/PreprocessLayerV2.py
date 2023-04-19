@@ -40,20 +40,20 @@ class PreprocessLayerV2(tf.keras.layers.Layer):
         })
         return config
     
-    def get_mean_std(self, LIPS_IDXS, data):
+#     def get_mean_std(self, LIPS_IDXS, data):
                 
-        xs = tf.reshape(tf.transpose(data, [2,0,1]), [2,tf.size(LIPS_IDXS)*tf.shape(data)[0]])[0]
-        ys = tf.reshape(tf.transpose(data, [2,0,1]), [2,tf.size(LIPS_IDXS)*tf.shape(data)[0]])[1]
+#         xs = tf.reshape(tf.transpose(data, [2,0,1]), [2,tf.size(LIPS_IDXS)*tf.shape(data)[0]])[0]
+#         ys = tf.reshape(tf.transpose(data, [2,0,1]), [2,tf.size(LIPS_IDXS)*tf.shape(data)[0]])[1]
             
-        LIPS_MEAN_X = tf.math.reduce_mean(xs)
-        LIPS_STD_X = tf.math.reduce_std(xs)
-        LIPS_MEAN_Y = tf.math.reduce_mean(ys)
-        LIPS_STD_Y = tf.math.reduce_std(ys)
+#         LIPS_MEAN_X = tf.math.reduce_mean(xs)
+#         LIPS_STD_X = tf.math.reduce_std(xs)
+#         LIPS_MEAN_Y = tf.math.reduce_mean(ys)
+#         LIPS_STD_Y = tf.math.reduce_std(ys)
 
-        LIPS_MEAN = tf.stack([LIPS_MEAN_X, LIPS_MEAN_Y])
-        LIPS_STD = tf.stack([LIPS_STD_X, LIPS_STD_Y])
+#         LIPS_MEAN = tf.stack([LIPS_MEAN_X, LIPS_MEAN_Y])
+#         LIPS_STD = tf.stack([LIPS_STD_X, LIPS_STD_Y])
 
-        return LIPS_MEAN, LIPS_STD
+#         return LIPS_MEAN, LIPS_STD
     
     @tf.function(input_signature=(tf.TensorSpec(shape=[None, 543, 2], dtype=tf.float32),),)
     def call(self, data):
@@ -72,7 +72,17 @@ class PreprocessLayerV2(tf.keras.layers.Layer):
         
         # Slice out face indicies, normalize across batch.        
         face = tf.slice(data, [0, self.FACE_START, 0], [N_FRAMES, self.LEFT_HAND_START, 2])
-        face_mean, face_std = self.get_mean_std(self.FACE_IDXS, face)
+        # face_mean, face_std = self.get_mean_std(self.FACE_IDXS, face)
+        xs = tf.reshape(tf.transpose(face, [2,0,1]), [2,tf.size(self.FACE_IDXS)*tf.shape(face)[0]])[0]
+        ys = tf.reshape(tf.transpose(face, [2,0,1]), [2,tf.size(self.FACE_IDXS)*tf.shape(face)[0]])[1]
+            
+        FACE_MEAN_X = tf.math.reduce_mean(xs)
+        FACE_STD_X = tf.math.reduce_std(xs)
+        FACE_MEAN_Y = tf.math.reduce_mean(ys)
+        FACE_STD_Y = tf.math.reduce_std(ys)
+
+        face_mean = tf.stack([FACE_MEAN_X, FACE_MEAN_Y])
+        face_std = tf.stack([FACE_STD_X, FACE_STD_Y])
         face = tf.where(
                     tf.math.equal(face, 0.0),
                     0.0,
@@ -84,7 +94,17 @@ class PreprocessLayerV2(tf.keras.layers.Layer):
         left_hand = tf.slice(data, [0, self.LEFT_HAND_START, 0], [N_FRAMES, self.POSE_START-self.LEFT_HAND_START, 2])
         # left_hand = tf.keras.utils.normalize(left_hand, axis=1, order=2)
         # left_hand = tf.linalg.normalize(left_hand, axis=1)
-        left_hand_mean, left_hand_std = self.get_mean_std(self.LEFT_HAND_IDXS, left_hand)
+        # left_hand_mean, left_hand_std = self.get_mean_std(self.LEFT_HAND_IDXS, left_hand)
+        xs = tf.reshape(tf.transpose(left_hand, [2,0,1]), [2,tf.size(self.LEFT_HAND_IDXS)*tf.shape(left_hand)[0]])[0]
+        ys = tf.reshape(tf.transpose(left_hand, [2,0,1]), [2,tf.size(self.LEFT_HAND_IDXS)*tf.shape(left_hand)[0]])[1]
+            
+        LEFT_HAND_MEAN_X = tf.math.reduce_mean(xs)
+        LEFT_HAND_STD_X = tf.math.reduce_std(xs)
+        LEFT_HAND_MEAN_Y = tf.math.reduce_mean(ys)
+        LEFT_HAND_STD_Y = tf.math.reduce_std(ys)
+
+        left_hand_mean = tf.stack([LEFT_HAND_MEAN_X, LEFT_HAND_MEAN_Y])
+        left_hand_std = tf.stack([LEFT_HAND_STD_X, LEFT_HAND_STD_Y])
         left_hand = tf.where(
                     tf.math.equal(left_hand, 0.0),
                     0.0,
@@ -94,7 +114,17 @@ class PreprocessLayerV2(tf.keras.layers.Layer):
 #         # Slice out pose indicies, normalize across batch.
         pose = tf.slice(data, [0, self.POSE_START, 0], [N_FRAMES, self.RIGHT_HAND_START-self.POSE_START, 2])
         # pose = tf.keras.utils.normalize(pose, axis=1, order=2)
-        pose_mean, pose_std = self.get_mean_std(self.POSE_IDXS, pose)
+        # pose_mean, pose_std = self.get_mean_std(self.POSE_IDXS, pose)
+        xs = tf.reshape(tf.transpose(pose, [2,0,1]), [2,tf.size(self.POSE_IDXS)*tf.shape(pose)[0]])[0]
+        ys = tf.reshape(tf.transpose(pose, [2,0,1]), [2,tf.size(self.POSE_IDXS)*tf.shape(pose)[0]])[1]
+            
+        POSE_MEAN_X = tf.math.reduce_mean(xs)
+        POSE_STD_X = tf.math.reduce_std(xs)
+        POSE_MEAN_Y = tf.math.reduce_mean(ys)
+        POSE_STD_Y = tf.math.reduce_std(ys)
+
+        pose_mean = tf.stack([POSE_MEAN_X, POSE_MEAN_Y])
+        pose_std = tf.stack([POSE_STD_X, POSE_STD_Y])
         pose = tf.where(
                     tf.math.equal(pose, 0.0),
                     0.0,
@@ -104,7 +134,17 @@ class PreprocessLayerV2(tf.keras.layers.Layer):
 #         # Slice out right_hand indicies, normalize across batch.
         right_hand = tf.slice(data, [0, self.RIGHT_HAND_START, 0], [N_FRAMES, tf.shape(data)[1] - self.RIGHT_HAND_START, 2])
 #         # right_hand = tf.keras.utils.normalize(right_hand, axis=1, order=2)
-        right_hand_mean, right_hand_std = self.get_mean_std(self.RIGHT_HAND_IDXS, right_hand)
+        # right_hand_mean, right_hand_std = self.get_mean_std(self.RIGHT_HAND_IDXS, right_hand)
+        xs = tf.reshape(tf.transpose(right_hand, [2,0,1]), [2,tf.size(self.LEFT_HAND_IDXS)*tf.shape(right_hand)[0]])[0]
+        ys = tf.reshape(tf.transpose(right_hand, [2,0,1]), [2,tf.size(self.LEFT_HAND_IDXS)*tf.shape(right_hand)[0]])[1]
+            
+        RIGHT_HAND_MEAN_X = tf.math.reduce_mean(xs)
+        RIGHT_HAND_STD_X = tf.math.reduce_std(xs)
+        RIGHT_HAND_MEAN_Y = tf.math.reduce_mean(ys)
+        RIGHT_HAND_STD_Y = tf.math.reduce_std(ys)
+
+        right_hand_mean = tf.stack([RIGHT_HAND_MEAN_X, RIGHT_HAND_MEAN_Y])
+        right_hand_std = tf.stack([RIGHT_HAND_STD_X, RIGHT_HAND_STD_Y])
         right_hand = tf.where(
                     tf.math.equal(right_hand, 0.0),
                     0.0,
